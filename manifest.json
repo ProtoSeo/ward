@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Ward",
+  "description": "Go to ward",
+  "version": "1.0.0",
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "images/icon.png"
+  },
+  "permissions": [
+    "unlimitedStorage",
+    "storage",
+    "tabs",
+    "identity"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "host_permissions": [
+    "https://github.com/"
+  ]
+}
