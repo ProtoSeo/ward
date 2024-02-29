@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="css/popup.css"/>
+  <title>Ward</title>
+</head>
+<body>
+<div id="header">
+  <h1>와드!</h1>
+</div>
+<hr>
+<div id="content">
+  <!--logout status section-->
+  <div id="logged-out-div" hidden>
+    <p>Github Login</p>
+    <button id="github-login-btn">Login</button>
+    <p>로그인 아직 안됨</p>
+    <hr>
+  </div>
+  <!--login status section-->
+  <div id="logged-in-div" hidden>
+    <p>로그인 됐음</p>
+    <button id="clear-temp-btn">storage clear</button>
+    <!--repository information section-->
+    <div id="repo-info-div">
+      <p id="registered-repo-name" hidden></p>
+      <label for="repo-name-input"></label>
+      <input type="text" id="repo-name-input" placeholder="Enter repository name">
+      <button id="repo-register-btn" hidden>레포지토리 등록</button>
+    </div>
+    <!--save ward div-->
+    <div id="save-ward-div">
+      <!--title information section-->
+      <div id="title-div">
+        <label for="title-input"></label>
+        <input type="text" id="title-input" placeholder="Enter title name">
+      </div>
+      <!--tag information section-->
+      <div id="tag-div">
+        <label for="tag-input"></label>
+        <input type="text" id="tag-input" placeholder="Enter tags name">
+      </div>
+      <button id="save-btn">해당 페이지 저장하기</button>
+    </div>
+  </div>
+
+</div>
+<script type="module" src="popup.js"></script>
+</body>
+</html>
