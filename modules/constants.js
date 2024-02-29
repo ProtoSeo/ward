@@ -1,0 +1,9 @@
+export const ACCESS_TOKEN_URL = 'https://github.com/login/oauth/access_token';
+export const AUTHORIZATION_URL = 'https://github.com/login/oauth/authorize';
+export const GITHUB_API_URL = 'https://api.github.com'
+export const GITHUB_API_VERSION = '2022-11-28'
+export const GITHUB_JSON = 'application/vnd.github+json'
+export const CLIENT_ID = '4baf78fbfa1db69c6b8f';
+export const CLIENT_SECRET = '6354e1493a6087466cbc3fd460fff795d1fe5c85';
+export const REDIRECT_URL = chrome.identity.getRedirectURL('github');
+export const SCOPES = ['repo'];
