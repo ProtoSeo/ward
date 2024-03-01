@@ -1,9 +1,9 @@
-import {GITHUB_API_VERSION, GITHUB_JSON} from "./constants.js";
+import {GITHUB_API_URL, GITHUB_API_VERSION, GITHUB_JSON} from "./constants.js";
 import {getToken} from "./storages.js";
 
-async function githubFetch(url, method, body) {
+async function githubFetch(urn, method, body) {
   const token = await getToken();
-  return fetch(url, {
+  return fetch(GITHUB_API_URL + urn, {
     method: method,
     headers: {
       'Accept': GITHUB_JSON,
@@ -14,14 +14,18 @@ async function githubFetch(url, method, body) {
   });
 }
 
-export function post(url, body) {
-  return githubFetch(url, 'POST', body);
+export function post(urn, body) {
+  return githubFetch(urn, 'POST', body);
 }
 
-export function put(url, body) {
-  return githubFetch(url, 'PUT', body);
+export function patch(urn, body) {
+  return githubFetch(urn, 'PATCH', body);
 }
 
-export function get(url) {
-  return githubFetch(url, 'GET');
+export function put(urn, body) {
+  return githubFetch(urn, 'PUT', body);
+}
+
+export function get(urn) {
+  return githubFetch(urn, 'GET');
 }
