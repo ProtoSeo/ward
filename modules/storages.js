@@ -19,7 +19,7 @@ export function getToken() {
   return getLocalStorage('githubToken');
 }
 
-export function getRepositoryFullName() {
+export function getRepository() {
   return getLocalStorage('repoFullName');
 }
 
