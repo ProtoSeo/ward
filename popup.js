@@ -1,5 +1,5 @@
 import {clearLocalStorage, containsKey, getLocalStorage} from './modules/storages.js';
-import {createOrUpdateFile, createRepository, getTree} from "./modules/github.js";
+import {createRepository, updateRepository} from "./modules/github.js";
 import {displayElement, hideElement} from "./modules/utils.js";
 
 async function checkStatus() {
@@ -10,11 +10,11 @@ async function checkStatus() {
     displayElement('logged-out-div');
   }
 
-  const isRegisteredRepository = await containsKey('repoFullName');
+  const isRegisteredRepository = await containsKey('repository');
   if (isRegisteredRepository) {
     hideElement('repo-name-input');
     displayElement('registered-repo-name');
-    document.getElementById('registered-repo-name').innerText = await getLocalStorage('repoFullName');
+    document.getElementById('registered-repo-name').innerText = await getLocalStorage('repository');
   } else {
     displayElement('repo-register-btn');
     hideElement('save-ward-div');
@@ -39,23 +39,12 @@ document.getElementById("clear-temp-btn").addEventListener("click", () => {
 });
 
 document.getElementById("save-btn").addEventListener("click", async () => {
-  if (!await containsKey('githubToken')) {
-    console.log('no token')
-    return;
-  }
-  if (!await containsKey('repoFullName')) {
-    console.log('not registered repository')
-    return;
-  }
   const title = document.getElementById("title-input").value;
   const [tab] = await chrome.tabs.query({active: true, currentWindow: true})
   const tabUrl = tab.url;
   console.log(tabUrl);
-  createOrUpdateFile(title, [], tabUrl).then(() => {
-    getTree();
-  });
-
-})
+  updateRepository(title, ['쭈니', 'dog'], tabUrl);
+});
 
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   if (message.action === 'reload') {
