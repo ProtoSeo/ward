@@ -1,89 +1,120 @@
-import {GITHUB_API_URL} from "./constants.js";
-import {getRepositoryFullName, getTitles, setLocalStorage} from "./storages.js";
-import {get, post, put} from "./requests.js";
-import {stringToBase64} from "./utils.js";
+import {createDefaultReadme, createFileReadme, createUniqueTitle, updateDefaultReadme} from "./documents.js";
+import {getRepository, getTitles, getToken, setLocalStorage} from "./storages.js";
+import {get, patch, post} from "./requests.js";
+import {base64ToString} from "./utils.js";
 
-/**
- * https://docs.github.com/en/rest/git/trees?apiVersion=2022-11-28#get-a-tree
- * @returns {Promise<void>}
- */
-export async function getTree() {
-  const repoFullName = await getRepositoryFullName();
-  const url = GITHUB_API_URL + `/repos/${repoFullName}/git/trees/main`;
-  const response = await get(url);
-  const json = await response.json();
-  console.log(json)
-}
-
-function updateReadme() {
-
-}
-
-/**
- * https://docs.github.com/en/rest/repos/repos?apiVersion=2022-11-28#create-a-repository-for-the-authenticated-user
- * @param name
- * @returns {Promise<void>}
- */
 export async function createRepository(name) {
-  const url = GITHUB_API_URL + '/user/repos';
-  const response = await post(url, {
+  const token = await getToken();
+  const response = await post('/user/repos', token, {
     name: name,
     description: 'ward',
     private: false,
     auto_init: true
   });
   const json = await response.json();
-  console.log(json)
   if (response.ok) {
-    setLocalStorage({'repoFullName': json['full_name']});
-  } else {
-    // 중복된 Repository ...?
+    const repository = json['full_name'];
+    const githubData = {repository, token};
+    setLocalStorage({'repository': repository});
+    await createInitialCommit(name, githubData);
+    console.log('성공적으로 레포지토리가 생성되었습니다.');
   }
 }
 
-/**
- * https://docs.github.com/en/rest/repos/contents?apiVersion=2022-11-28#create-or-update-file-contents
- * @param title
- * @param tags
- * @param tabUrl
- * @returns {Promise<void>}
- */
-export async function createOrUpdateFile(title, tags, tabUrl) {
-  const repoFullName = await getRepositoryFullName();
+async function createInitialCommit(name, githubData) {
+  const refObjectSHA = await getReference(githubData);
+  const readme = await createBlob(githubData, 'README.md', createDefaultReadme(name));
+  const tree = await createTree(githubData, refObjectSHA, [readme]);
+  const commit = await createCommit(githubData, 'Initial commit', tree['sha'], undefined);
+  await updateReference(githubData, commit['sha']);
+}
+
+export async function updateRepository(title, tags, tabUrl) {
+  const githubData = await getGithubData();
   const titles = await getTitles();
-  const createdTitle = createNotDuplicateTitle(title, titles);
-  const url = GITHUB_API_URL + `/repos/${repoFullName}/contents/${createdTitle}/README.md`;
-  const response = await put(url, {
-    message: `${title}`,
-    content: stringToBase64(createReadme(title, tags, tabUrl))
+
+  const prevReadme = await getRepositoryReadme(githubData);
+  const createdTitle = createUniqueTitle(titles, title);
+
+  const refObjectSHA = await getReference(githubData);
+  const readme = await createBlob(githubData, 'README.md', updateDefaultReadme(prevReadme, createdTitle, tags, tabUrl));
+  const file = await createBlob(githubData, `${createdTitle}/README.md`, createFileReadme(title, tags, tabUrl));
+  const tree = await createTree(githubData, refObjectSHA, [readme, file]);
+  const commit = await createCommit(githubData, `${title}`, tree['sha'], [refObjectSHA]);
+  await updateReference(githubData, commit['sha']).then(() => {
+    titles.push(createdTitle);
+    setLocalStorage({'titles': titles})
+  });
+}
+
+async function getGithubData() {
+  const repository = await getRepository();
+  const token = await getToken();
+  return {
+    repository: repository,
+    token: token
+  };
+}
+
+async function getReference(githubData) {
+  const {repository, token} = githubData;
+  const response = await get(`/repos/${repository}/git/ref/heads/main`, token, 'no-cache');
+  const json = await response.json();
+  return json['object']['sha'];
+}
+
+async function createBlob(githubData, path, content) {
+  const {repository, token} = githubData;
+  const response = await post(`/repos/${repository}/git/blobs`, token, {
+    content: content
+  });
+  const json = await response.json()
+  return {
+    path: path,
+    mode: '100644',
+    type: 'blob',
+    sha: json['sha']
+  };
+}
+
+async function createTree(githubData, baseTree, tree) {
+  const {repository, token} = githubData;
+  const response = await post(`/repos/${repository}/git/trees`, token, {
+    base_tree: baseTree,
+    tree: tree
   });
   const json = await response.json();
-  console.log(titles)
-  console.log(json)
-  if (response.ok) {
-    titles.push(createdTitle);
-    setLocalStorage({'titles': titles});
-  } else {
-    // 중복된 파일 ...?
+  return {
+    sha: json['sha']
+  };
+}
+
+async function createCommit(githubData, message, tree, parents) {
+  const {repository, token} = githubData;
+  const response = await post(`/repos/${repository}/git/commits`, token, {
+    message: message,
+    tree: tree,
+    parents: parents
+  });
+  const json = await response.json();
+  return {
+    sha: json['sha']
   }
 }
 
-function createReadme(title, tags, tabUrl) {
-  let readme = `# [${title}](${tabUrl})\n\n### URL\n\n- ${tabUrl}\n\n`;
-  if (tags.length > 0) {
-    readme += '### Tag\n\n';
-    tags.forEach((tag) => readme += `- ${tag}\n`);
-  }
-  return readme
+async function updateReference(githubData, sha, force = true) {
+  const {repository, token} = githubData;
+  const response = await patch(`/repos/${repository}/git/refs/heads/main`, token, {
+    sha: sha,
+    force: force
+  });
+  const json = await response.json();
+  console.log(json);
 }
 
-function createNotDuplicateTitle(title, titles) {
-  if (titles.includes(title)) {
-    let number = 1;
-    while (titles.includes(`${title}-${number}`)) {
-      number++;
-    }
-    return `${title}-${number}`;
-  }
-  return title;
+async function getRepositoryReadme(githubData) {
+  const {repository, token} = githubData;
+  const response = await get(`/repos/${repository}/readme`, token, 'no-cache');
+  const json = await response.json();
+  return base64ToString(json['content']);
 }
