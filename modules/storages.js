@@ -20,7 +20,7 @@ export function getToken() {
 }
 
 export function getRepository() {
-  return getLocalStorage('repoFullName');
+  return getLocalStorage('repository');
 }
 
 export async function getTitles() {
