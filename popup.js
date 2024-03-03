@@ -1,53 +1,91 @@
 import {clearLocalStorage, containsKey, getLocalStorage} from './modules/storages.js';
 import {createRepository, updateRepository} from "./modules/github.js";
-import {displayElement, hideElement} from "./modules/utils.js";
+import * as dom from "./modules/dom.js";
 
-async function checkStatus() {
+async function updateDisplay() {
   const isLoggedIn = await containsKey('githubToken');
   if (isLoggedIn) {
-    displayElement('logged-in-div');
+    dom.displayElement('logged-in-div');
   } else {
-    displayElement('logged-out-div');
+    dom.displayElement('logged-out-div');
   }
 
   const isRegisteredRepository = await containsKey('repository');
   if (isRegisteredRepository) {
-    hideElement('repo-name-input');
-    displayElement('registered-repo-name');
+    dom.hideElement('repo-name-input');
+    dom.displayElement('registered-repo-name');
     document.getElementById('registered-repo-name').innerText = await getLocalStorage('repository');
   } else {
-    displayElement('repo-register-btn');
-    hideElement('save-ward-div');
+    dom.displayElement('repo-register-btn');
+    dom.hideElement('save-ward-div');
   }
 }
 
-checkStatus();
+function handleTagInputKeyDown(event) {
+  if (event.isComposing) {
+    return;
+  }
+  const tagContainer = document.getElementById('tag-container');
+  const tagInput = document.getElementById('tag-input');
+  const tags = Array.from(tagContainer.getElementsByClassName('tag')).map(tag => tag.textContent.trim());
 
-document.getElementById("repo-register-btn").addEventListener("click", async () => {
+  if (event.key === 'Backspace' && tags.length > 0 && tagInput.value === '') {
+    event.preventDefault();
+    const lastTag = tagContainer.lastChild;
+    lastTag.remove();
+  } else if (event.key === 'Enter') {
+    event.preventDefault();
+    const tagText = tagInput.value.trim();
+    if (tagText !== '' && !tags.includes(tagText)) {
+      const tag = document.createElement('li');
+      tag.className = 'tag';
+      tag.textContent = tagText;
+      tagContainer.insertBefore(tag, null);
+      tagInput.value = '';
+    }
+  }
+}
+
+async function registerRepository() {
+  dom.disabledButton('repo-register-btn');
   const name = document.getElementById("repo-name-input").value;
-  const response = await createRepository(name);
+  await createRepository(name);
   location.reload();
-});
+}
 
-document.getElementById("github-login-btn").addEventListener("click", () => {
+function githubLogin() {
   chrome.runtime.sendMessage({action: 'login'});
-});
+}
 
-// for test temp
-document.getElementById("clear-temp-btn").addEventListener("click", () => {
-  clearLocalStorage().then(() => location.reload());
-});
-
-document.getElementById("save-btn").addEventListener("click", async () => {
+async function saveUrlToRepository() {
+  dom.disabledButton('save-btn');
   const title = document.getElementById("title-input").value;
+  const tags = Array.from(document.getElementById('tag-container')
+      .getElementsByClassName('tag')
+  ).map(tag => tag.textContent.trim());
+
   const [tab] = await chrome.tabs.query({active: true, currentWindow: true})
   const tabUrl = tab.url;
-  console.log(tabUrl);
-  updateRepository(title, ['쭈니', 'dog'], tabUrl);
+  await updateRepository(title, tags, tabUrl);
+  location.reload();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  updateDisplay();
+
+  document.getElementById('tag-input').addEventListener('keydown', handleTagInputKeyDown);
+  document.getElementById("repo-register-btn").addEventListener("click", registerRepository);
+  document.getElementById("github-login-btn").addEventListener("click", githubLogin);
+  document.getElementById("save-btn").addEventListener("click", saveUrlToRepository);
+
+  chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
+    if (message.action === 'reload') {
+      location.reload();
+    }
+  });
 });
 
-chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
-  if (message.action === 'reload') {
-    location.reload();
-  }
+// clear localstorage function for test
+document.getElementById("clear-temp-btn").addEventListener("click", () => {
+  clearLocalStorage().then(() => location.reload());
 });
