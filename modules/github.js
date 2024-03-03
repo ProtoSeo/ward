@@ -17,7 +17,6 @@ export async function createRepository(name) {
     const githubData = {repository, token};
     setLocalStorage({'repository': repository});
     await createInitialCommit(name, githubData);
-    console.log('성공적으로 레포지토리가 생성되었습니다.');
   }
 }
 
