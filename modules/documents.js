@@ -12,7 +12,6 @@ export function createDefaultReadme(name) {
   readme += '<table>\n'
       + '  <tr>\n'
       + '    <td>제목</td>\n'
-      + '    <td>주소</td>\n'
       + '    <td>태그</td>\n'
       + '  </tr>\n'
       + '</table>\n'
@@ -33,9 +32,8 @@ export function createUniqueTitle(titles, title) {
 export function updateDefaultReadme(content, title, tags, tabUrl) {
   const index = content.lastIndexOf('</table>');
   const information = '  <tr>\n'
-      + `    <td>${title}</td>\n`
       + `    <td><a href="${tabUrl}">${title}</a></td>\n`
-      + `    <td>${tags.join(',')}</td>\n`
+      + `    <td>${tags.join(', ')}</td>\n`
       + '  </tr>\n';
   return content.slice(0, index) + information + content.slice(index);
 }
