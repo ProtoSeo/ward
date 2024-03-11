@@ -7,6 +7,7 @@ import {
   REDIRECT_URL,
   SCOPES
 } from "./modules/constants.js";
+import {updateRepository} from "./modules/github.js"
 
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   if (message.action === 'login') {
@@ -14,12 +15,21 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     if (!code) {
       return false;
     }
-    const accessToken = await fetchAccessToken(code);
-    sendResponse({accessToken: accessToken});
-    chrome.runtime.sendMessage({action: 'reload'});
+    await fetchAccessToken(code);
+    sendReload();
+  } else if (message.action === 'update') {
+    await updateRepository(message['title'], message['tags'], message['tabUrl']);
+    sendReload();
   }
-  return true;
 });
+
+function sendReload() {
+  chrome.runtime.getContexts({contextTypes: ['POPUP']}, (contexts) => {
+    if (contexts.length > 0) {
+      chrome.runtime.sendMessage({action: 'reload'});
+    }
+  });
+}
 
 async function redirectToGithubLogin() {
   const scope = SCOPES.join(",");

@@ -1,5 +1,5 @@
 import {clearLocalStorage, containsKey, getLocalStorage} from './modules/storages.js';
-import {createRepository, updateRepository} from "./modules/github.js";
+import {createRepository} from "./modules/github.js";
 import * as dom from "./modules/dom.js";
 
 async function updateDisplay() {
@@ -64,10 +64,15 @@ async function saveUrlToRepository() {
       .getElementsByClassName('tag')
   ).map(tag => tag.textContent.trim());
 
-  const [tab] = await chrome.tabs.query({active: true, currentWindow: true})
+  const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
   const tabUrl = tab.url;
-  await updateRepository(title, tags, tabUrl);
-  location.reload();
+  const tabTitle = tab.title;
+  await chrome.runtime.sendMessage({
+    action: 'update',
+    title: (title === undefined || title.length === 0) ? tabTitle : title,
+    tags: tags,
+    tabUrl: tabUrl
+  });
 }
 
 document.addEventListener("DOMContentLoaded", () => {
