@@ -36,9 +36,11 @@ export async function updateRepository(title, tags, tabUrl) {
   const createdTitle = createUniqueTitle(titles, title);
 
   const refObjectSHA = await getReference(githubData);
-  const readme = await createBlob(githubData, 'README.md', updateDefaultReadme(prevReadme, createdTitle, tags, tabUrl));
-  const file = await createBlob(githubData, `${createdTitle}/README.md`, createFileReadme(title, tags, tabUrl));
-  const tree = await createTree(githubData, refObjectSHA, [readme, file]);
+  const blobs = await Promise.all([
+    createBlob(githubData, 'README.md', updateDefaultReadme(prevReadme, createdTitle, tags, tabUrl)),
+    createBlob(githubData, `${createdTitle}/README.md`, createFileReadme(title, tags, tabUrl))
+  ]);
+  const tree = await createTree(githubData, refObjectSHA, blobs);
   const commit = await createCommit(githubData, `${title}`, tree['sha'], [refObjectSHA]);
   await updateReference(githubData, commit['sha']).then(() => {
     titles.push(createdTitle);
