@@ -17,8 +17,8 @@ export function post(urn, token, body, cache = 'default') {
   return githubFetch(urn, 'POST', token, body, cache);
 }
 
-export function patch(urn, token, body, cache = 'default') {
-  return githubFetch(urn, 'PATCH', token, body, cache);
+export function put(urn, token, body, cache = 'default') {
+  return githubFetch(urn, 'PUT', token, body, cache);
 }
 
 export function get(urn, token, cache = 'default') {
