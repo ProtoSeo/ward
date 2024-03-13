@@ -1,5 +1,5 @@
 import {clearLocalStorage, containsKey, getLocalStorage} from './modules/storages.js';
-import {createRepository} from "./modules/github.js";
+import {createRepositoryByTemplate} from "./modules/github.js";
 import * as dom from "./modules/dom.js";
 
 async function updateDisplay() {
@@ -49,7 +49,7 @@ function handleTagInputKeyDown(event) {
 async function registerRepository() {
   dom.disabledButton('repo-register-btn');
   const name = document.getElementById("repo-name-input").value;
-  await createRepository(name);
+  await createRepositoryByTemplate(name);
   location.reload();
 }
 
