@@ -20,7 +20,3 @@ export function post(urn, token, body, cache = 'default') {
 export function put(urn, token, body, cache = 'default') {
   return githubFetch(urn, 'PUT', token, body, cache);
 }
-
-export function get(urn, token, cache = 'default') {
-  return githubFetch(urn, 'GET', token, undefined, cache);
-}
