@@ -15,7 +15,13 @@
   <div id="logged-out-div" hidden>
     <p>Github Login</p>
     <button id="github-login-btn">Login</button>
-    <p>로그인 아직 안됨</p>
+    <!--device flow code section-->
+    <div id="device-code-div" hidden>
+      <p>코드가 클립보드에 복사되었습니다:</p>
+      <p id="user-code"></p>
+      <a id="verification-link" href="#" target="_blank">GitHub에서 인증하기</a>
+      <p>인증 완료 후 자동으로 로그인됩니다.</p>
+    </div>
     <hr>
   </div>
   <!--login status section-->

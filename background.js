@@ -1,22 +1,15 @@
 import {setLocalStorage} from "./modules/storages.js";
 import {
-  ACCESS_TOKEN_URL,
-  AUTHORIZATION_URL,
   CLIENT_ID,
-  CLIENT_SECRET,
-  REDIRECT_URL,
+  DEVICE_CODE_URL,
+  DEVICE_TOKEN_URL,
   SCOPES
 } from "./modules/constants.js";
 import {createPullRequest} from "./modules/github.js"
 
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   if (message.action === 'login') {
-    const code = await redirectToGithubLogin();
-    if (!code) {
-      return false;
-    }
-    await fetchAccessToken(code);
-    sendReload();
+    await startDeviceFlow();
   } else if (message.action === 'update') {
     await createPullRequest(message['title'], message['tabUrl'], message['content']);
     sendReload();
@@ -31,32 +24,9 @@ function sendReload() {
   });
 }
 
-async function redirectToGithubLogin() {
-  const scope = SCOPES.join(",");
-  const authUrl = `${AUTHORIZATION_URL}?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URL}&scope=${scope}`;
-
-  const redirectUrl = await chrome.identity.launchWebAuthFlow({
-    url: authUrl,
-    interactive: true
-  });
-  if (redirectUrl === undefined) {
-    console.log("redirect url is undefined.")
-    return null;
-  }
-  const url = new URL(redirectUrl);
-  const code = url.searchParams.get('code');
-  const error = url.searchParams.get('error');
-
-  console.log(error);
-  console.log(code);
-  if (code) {
-    return code;
-  }
-  return null;
-}
-
-async function fetchAccessToken(code) {
-  const response = await fetch(ACCESS_TOKEN_URL, {
+async function startDeviceFlow() {
+  // 1. device code 요청
+  const response = await fetch(DEVICE_CODE_URL, {
     method: 'POST',
     headers: {
       'Accept': 'application/json',
@@ -64,14 +34,57 @@ async function fetchAccessToken(code) {
     },
     body: JSON.stringify({
       client_id: CLIENT_ID,
-      client_secret: CLIENT_SECRET,
-      code: code
+      scope: SCOPES.join(' ')
     })
-  }).then(response => response.json())
+  }).then(res => res.json());
 
-  const accessToken = response['access_token'];
-  setLocalStorage({'githubToken': accessToken}).then(() => console.log("save access token successful"))
-  return accessToken;
+  const {device_code, user_code, verification_uri, interval, expires_in} = response;
+
+  // 2. popup에 user_code 전달
+  chrome.runtime.sendMessage({
+    action: 'device_code',
+    userCode: user_code,
+    verificationUri: verification_uri
+  });
+
+  // 3. 폴링으로 토큰 수령
+  await pollForToken(device_code, interval, expires_in);
+}
+
+async function pollForToken(deviceCode, interval, expiresIn) {
+  const pollInterval = (interval || 5) * 1000;
+  const expiresAt = Date.now() + (expiresIn * 1000);
+
+  while (Date.now() < expiresAt) {
+    await new Promise(resolve => setTimeout(resolve, pollInterval));
+
+    const response = await fetch(DEVICE_TOKEN_URL, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        client_id: CLIENT_ID,
+        device_code: deviceCode,
+        grant_type: 'urn:ietf:params:oauth:grant-type:device_code'
+      })
+    }).then(res => res.json());
+
+    if (response.access_token) {
+      await setLocalStorage({'githubToken': response.access_token});
+      sendReload();
+      return;
+    }
+
+    if (response.error === 'slow_down') {
+      await new Promise(resolve => setTimeout(resolve, 5000));
+    } else if (response.error === 'expired_token' || response.error === 'access_denied') {
+      chrome.runtime.sendMessage({action: 'login_failed', error: response.error});
+      return;
+    }
+    // authorization_pending → 계속 폴링
+  }
 }
 
 chrome.storage.onChanged.addListener((changes, namespace) => {

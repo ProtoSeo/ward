@@ -60,6 +60,18 @@ document.addEventListener("DOMContentLoaded", () => {
   chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     if (message.action === 'reload') {
       location.reload();
+    } else if (message.action === 'device_code') {
+      dom.displayElement('device-code-div');
+      document.getElementById('user-code').textContent = message.userCode;
+      navigator.clipboard.writeText(message.userCode);
+      const link = document.getElementById('verification-link');
+      link.href = message.verificationUri;
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        chrome.tabs.create({url: message.verificationUri});
+      });
+    } else if (message.action === 'login_failed') {
+      dom.hideElement('device-code-div');
     }
   });
 });
