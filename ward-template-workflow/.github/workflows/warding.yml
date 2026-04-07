@@ -1,0 +1,117 @@
+name: Ward AI Summarization
+
+on:
+  pull_request:
+    types: [opened]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  summarize:
+    runs-on: ubuntu-latest
+    if: startsWith(github.head_ref, 'ward/')
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Extract content from PR body
+        id: extract
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.pull_request.body || '';
+
+            const urlMatch = body.match(/\*\*URL\*\*:\s*(.*)/);
+            const url = urlMatch ? urlMatch[1].trim() : '';
+
+            const contentMatch = body.match(/## Page Content\n\n([\s\S]*)/);
+            const content = contentMatch ? contentMatch[1].trim() : '';
+
+            const fs = require('fs');
+            fs.writeFileSync('page_content.txt', content.substring(0, 4000));
+            fs.writeFileSync('page_url.txt', url);
+
+      - name: Generate title, tags and summary with Gemini
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          CONTENT=$(cat page_content.txt)
+          URL=$(cat page_url.txt)
+          ESCAPED_CONTENT=$(echo "$CONTENT" | jq -Rs .)
+
+          PROMPT="You are given webpage content. Generate the following in JSON format:
+          1. \"title\": A concise, descriptive title (in the same language as the content)
+          2. \"tags\": An array of 3-5 relevant tags (in English, lowercase)
+          3. \"summary\": A summary in 3-5 bullet points (in Korean, each starting with '- ')
+
+          Respond ONLY with valid JSON, no markdown code blocks.
+
+          Webpage URL: ${URL}
+
+          Webpage content:
+          ${ESCAPED_CONTENT}"
+
+          ESCAPED_PROMPT=$(echo "$PROMPT" | jq -Rs .)
+
+          RESPONSE=$(curl -s "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$GEMINI_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"contents\": [{
+                \"parts\": [{
+                  \"text\": $ESCAPED_PROMPT
+                }]
+              }],
+              \"generationConfig\": {
+                \"responseMimeType\": \"application/json\"
+              }
+            }")
+
+          echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text' > ai_result.json
+
+      - name: Update README with AI content
+        run: |
+          CHANGED_FILE=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep 'README.md' | head -1)
+          if [ -z "$CHANGED_FILE" ]; then
+            echo "No README.md found"
+            exit 1
+          fi
+
+          TITLE=$(jq -r '.title' ai_result.json)
+          TAGS=$(jq -r '.tags | join(", ")' ai_result.json)
+          SUMMARY=$(jq -r '.summary' ai_result.json)
+          URL=$(cat page_url.txt)
+
+          cat > "$CHANGED_FILE" << README_EOF
+          ---
+          title: "${TITLE}"
+          url: ${URL}
+          tag: ${TAGS}
+          ---
+
+          # [${TITLE}](${URL})
+
+          ### URL
+
+          - ${URL}
+
+          ### Tag
+
+          $(jq -r '.tags[] | "- " + .' ai_result.json)
+
+          ### AI Summary
+
+          ${SUMMARY}
+          README_EOF
+
+          # heredoc 들여쓰기 제거
+          sed -i 's/^          //' "$CHANGED_FILE"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "$CHANGED_FILE"
+          git commit -m "Add AI-generated content for $(dirname $CHANGED_FILE)"
+          git push

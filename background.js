@@ -7,7 +7,7 @@ import {
   REDIRECT_URL,
   SCOPES
 } from "./modules/constants.js";
-import {createOrUpdateFile} from "./modules/github.js"
+import {createPullRequest} from "./modules/github.js"
 
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   if (message.action === 'login') {
@@ -18,7 +18,7 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     await fetchAccessToken(code);
     sendReload();
   } else if (message.action === 'update') {
-    await createOrUpdateFile(message['title'], message['tags'], message['tabUrl']);
+    await createPullRequest(message['title'], message['tabUrl'], message['content']);
     sendReload();
   }
 });
