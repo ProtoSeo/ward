@@ -84,12 +84,21 @@ export async function createPullRequest(title, tabUrl, content) {
   // 5. PR 생성 (페이지 콘텐츠를 body에 포함)
   const truncatedContent = content ? content.substring(0, 60000) : '';
   const prBody = `## Warded Page\n\n- **URL**: ${tabUrl}\n\n## Page Content\n\n${truncatedContent}`;
-  await post(`/repos/${repository}/pulls`, token, {
+  const prResponse = await post(`/repos/${repository}/pulls`, token, {
     title: `Ward: ${createdTitle}`,
     body: prBody,
     head: branchName,
     base: defaultBranch
   });
+
+  if (prResponse.ok) {
+    const prJson = await prResponse.json();
+    // titles에 저장
+    titles.push(createdTitle);
+    await setLocalStorage({'titles': titles});
+    return {success: true, prUrl: prJson['html_url']};
+  }
+  return {success: false};
 }
 
 function sanitizeBranchName(name) {

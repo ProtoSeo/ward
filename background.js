@@ -11,8 +11,12 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   if (message.action === 'login') {
     await startDeviceFlow();
   } else if (message.action === 'update') {
-    await createPullRequest(message['title'], message['tabUrl'], message['content']);
-    sendReload();
+    const result = await createPullRequest(message['title'], message['tabUrl'], message['content']);
+    chrome.runtime.sendMessage({
+      action: 'save_result',
+      success: result.success,
+      prUrl: result.prUrl
+    });
   }
 });
 

@@ -85,6 +85,22 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     } else if (message.action === 'login_failed') {
       dom.hideElement('device-code-div');
+    } else if (message.action === 'save_result') {
+      dom.displayElement('save-result-div');
+      const msgEl = document.getElementById('save-result-message');
+      const linkEl = document.getElementById('save-result-link');
+      if (message.success) {
+        msgEl.textContent = '저장 완료!';
+        linkEl.textContent = 'PR 확인하기';
+        linkEl.href = message.prUrl;
+        linkEl.addEventListener('click', (e) => {
+          e.preventDefault();
+          chrome.tabs.create({url: message.prUrl});
+        });
+      } else {
+        msgEl.textContent = '저장에 실패했습니다.';
+        linkEl.hidden = true;
+      }
     }
   });
 });

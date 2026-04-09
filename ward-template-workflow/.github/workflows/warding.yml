@@ -41,34 +41,25 @@ jobs:
         run: |
           CONTENT=$(cat page_content.txt)
           URL=$(cat page_url.txt)
-          ESCAPED_CONTENT=$(echo "$CONTENT" | jq -Rs .)
 
-          PROMPT="You are given webpage content. Generate the following in JSON format:
-          1. \"title\": A concise, descriptive title (in the same language as the content)
-          2. \"tags\": An array of 3-5 relevant tags (in English, lowercase)
-          3. \"summary\": A summary in 3-5 bullet points (in Korean, each starting with '- ')
-
-          Respond ONLY with valid JSON, no markdown code blocks.
-
-          Webpage URL: ${URL}
-
-          Webpage content:
-          ${ESCAPED_CONTENT}"
-
-          ESCAPED_PROMPT=$(echo "$PROMPT" | jq -Rs .)
+          # jq로 프롬프트와 콘텐츠를 한번에 JSON 구성 (이중 이스케이프 방지)
+          REQUEST_BODY=$(jq -n \
+            --arg content "$CONTENT" \
+            --arg url "$URL" \
+            '{
+              contents: [{
+                parts: [{
+                  text: ("You are given webpage content. Generate the following in JSON format:\n1. \"title\": A concise, descriptive title (in the same language as the content)\n2. \"tags\": An array of 3-5 relevant tags (in English, lowercase)\n3. \"summary\": A summary in 3-5 bullet points (in Korean, each starting with '\''- '\'')\n\nRespond ONLY with valid JSON, no markdown code blocks.\n\nWebpage URL: " + $url + "\n\nWebpage content:\n" + $content)
+                }]
+              }],
+              generationConfig: {
+                responseMimeType: "application/json"
+              }
+            }')
 
           RESPONSE=$(curl -s "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$GEMINI_API_KEY" \
             -H "Content-Type: application/json" \
-            -d "{
-              \"contents\": [{
-                \"parts\": [{
-                  \"text\": $ESCAPED_PROMPT
-                }]
-              }],
-              \"generationConfig\": {
-                \"responseMimeType\": \"application/json\"
-              }
-            }")
+            -d "$REQUEST_BODY")
 
           echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text' > ai_result.json
 
