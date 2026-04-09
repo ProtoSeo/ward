@@ -1,11 +1,68 @@
-import {setLocalStorage} from "./modules/storages.js";
+import {containsKey, setLocalStorage} from "./modules/storages.js";
 import {
   CLIENT_ID,
   DEVICE_CODE_URL,
   DEVICE_TOKEN_URL,
   SCOPES
 } from "./modules/constants.js";
-import {createPullRequest} from "./modules/github.js"
+import {createPullRequest, validateToken} from "./modules/github.js"
+
+// 컨텍스트 메뉴 생성
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.contextMenus.create({
+    id: 'ward-save',
+    title: 'Ward this page',
+    contexts: ['page']
+  });
+});
+
+// 컨텍스트 메뉴 클릭 핸들러
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  if (info.menuItemId !== 'ward-save') return;
+
+  // 로그인 확인
+  const hasToken = await containsKey('githubToken');
+  if (!hasToken) {
+    showNotification('로그인이 필요합니다', '팝업에서 로그인해주세요.');
+    return;
+  }
+
+  // 토큰 유효성 확인
+  const isValid = await validateToken();
+  if (!isValid) {
+    showNotification('로그인이 만료되었습니다', '팝업에서 다시 로그인해주세요.');
+    return;
+  }
+
+  // 레포 등록 확인
+  const hasRepo = await containsKey('repository');
+  if (!hasRepo) {
+    showNotification('레포지토리가 등록되지 않았습니다', '팝업에서 레포지토리를 등록해주세요.');
+    return;
+  }
+
+  // 페이지 콘텐츠 추출 후 저장
+  const [{result: pageContent}] = await chrome.scripting.executeScript({
+    target: {tabId: tab.id},
+    func: () => document.body.innerText
+  });
+
+  const result = await createPullRequest(tab.title, tab.url, pageContent);
+  if (result.success) {
+    showNotification('저장 완료!', `PR이 생성되었습니다.`);
+  } else {
+    showNotification('저장 실패', '다시 시도해주세요.');
+  }
+});
+
+function showNotification(title, message) {
+  chrome.notifications.create({
+    type: 'basic',
+    iconUrl: 'images/icon.png',
+    title: title,
+    message: message
+  });
+}
 
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   if (message.action === 'login') {

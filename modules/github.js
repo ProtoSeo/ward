@@ -3,6 +3,13 @@ import {getRepository, getTitles, getToken, setLocalStorage} from "./storages.js
 import {get, post, put} from "./requests.js";
 import {stringToBase64} from "./utils.js";
 
+export async function validateToken() {
+  const token = await getToken();
+  if (!token) return false;
+  const response = await get('/user', token);
+  return response.ok;
+}
+
 export async function registerRepository(customName) {
   const token = await getToken();
 
