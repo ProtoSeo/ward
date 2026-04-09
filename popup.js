@@ -1,5 +1,5 @@
 import {clearLocalStorage, containsKey, getLocalStorage} from './modules/storages.js';
-import {createRepositoryByTemplate} from "./modules/github.js";
+import {registerRepository as registerRepo} from "./modules/github.js";
 import * as dom from "./modules/dom.js";
 
 async function updateDisplay() {
@@ -12,7 +12,6 @@ async function updateDisplay() {
 
   const isRegisteredRepository = await containsKey('repository');
   if (isRegisteredRepository) {
-    dom.hideElement('repo-name-input');
     dom.displayElement('registered-repo-name');
     document.getElementById('registered-repo-name').innerText = await getLocalStorage('repository');
   } else {
@@ -23,9 +22,22 @@ async function updateDisplay() {
 
 async function registerRepository() {
   dom.disabledButton('repo-register-btn');
+  const result = await registerRepo();
+  if (result.needsCustomName) {
+    dom.displayElement('repo-conflict-div');
+    dom.hideElement('repo-register-btn');
+  } else {
+    location.reload();
+  }
+}
+
+async function registerCustomRepository() {
+  dom.disabledButton('repo-custom-register-btn');
   const name = document.getElementById("repo-name-input").value;
-  await createRepositoryByTemplate(name);
-  location.reload();
+  if (name) {
+    await registerRepo(name);
+    location.reload();
+  }
 }
 
 function githubLogin() {
@@ -54,6 +66,7 @@ document.addEventListener("DOMContentLoaded", () => {
   updateDisplay();
 
   document.getElementById("repo-register-btn").addEventListener("click", registerRepository);
+  document.getElementById("repo-custom-register-btn").addEventListener("click", registerCustomRepository);
   document.getElementById("github-login-btn").addEventListener("click", githubLogin);
   document.getElementById("save-btn").addEventListener("click", saveUrlToRepository);
 

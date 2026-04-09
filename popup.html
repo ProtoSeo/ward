@@ -31,9 +31,14 @@
     <!--repository information section-->
     <div id="repo-info-div">
       <p id="registered-repo-name" hidden></p>
-      <label for="repo-name-input"></label>
-      <input type="text" id="repo-name-input" placeholder="Enter repository name">
       <button id="repo-register-btn" hidden>레포지토리 등록</button>
+      <!--이름 충돌 시 표시-->
+      <div id="repo-conflict-div" hidden>
+        <p>이미 'ward' 레포지토리가 존재합니다. 다른 이름을 입력하세요:</p>
+        <label for="repo-name-input"></label>
+        <input type="text" id="repo-name-input" placeholder="Enter repository name">
+        <button id="repo-custom-register-btn">등록</button>
+      </div>
     </div>
     <!--save ward div-->
     <div id="save-ward-div">

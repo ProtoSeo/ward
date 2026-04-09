@@ -3,7 +3,38 @@ import {getRepository, getTitles, getToken, setLocalStorage} from "./storages.js
 import {get, post, put} from "./requests.js";
 import {stringToBase64} from "./utils.js";
 
-export async function createRepositoryByTemplate(name) {
+export async function registerRepository(customName) {
+  const token = await getToken();
+
+  // username 조회
+  const userResponse = await get('/user', token);
+  const userJson = await userResponse.json();
+  const username = userJson['login'];
+
+  const repoName = customName || 'ward';
+
+  // 레포 존재 여부 확인
+  const repoResponse = await get(`/repos/${username}/${repoName}`, token);
+
+  if (repoResponse.ok) {
+    // 레포가 존재 → ward-template 기반인지 확인
+    const workflowResponse = await get(`/repos/${username}/${repoName}/contents/.github/workflows/warding.yml`, token);
+
+    if (workflowResponse.ok) {
+      // ward-template 기반 → 그대로 연결
+      await setLocalStorage({'repository': `${username}/${repoName}`});
+      return {success: true};
+    } else {
+      // ward-template 기반 아님 → 커스텀 이름 필요
+      return {success: false, needsCustomName: true};
+    }
+  }
+
+  // 레포가 없음 → 새로 생성
+  return await createRepositoryByTemplate(repoName);
+}
+
+async function createRepositoryByTemplate(name) {
   const token = await getToken();
   const response = await post('/repos/protoseo/ward-template/generate', token, {
     name: name,
@@ -12,8 +43,10 @@ export async function createRepositoryByTemplate(name) {
   const json = await response.json();
   if (response.ok) {
     const repository = json['full_name'];
-    setLocalStorage({'repository': repository});
+    await setLocalStorage({'repository': repository});
+    return {success: true};
   }
+  return {success: false};
 }
 
 export async function createPullRequest(title, tabUrl, content) {
