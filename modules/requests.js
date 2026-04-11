@@ -1,16 +1,19 @@
 import {GITHUB_API_URL, GITHUB_API_VERSION, GITHUB_JSON} from "./constants.js";
 
 async function githubFetch(urn, method, token, body, cache) {
-  return fetch(GITHUB_API_URL + urn, {
+  const options = {
     method: method,
     cache: cache,
     headers: {
       'Accept': GITHUB_JSON,
       'Authorization': `Bearer ${token}`,
       'X-GitHub-Api-Version': GITHUB_API_VERSION
-    },
-    body: JSON.stringify(body)
-  });
+    }
+  };
+  if (body !== null && body !== undefined) {
+    options.body = JSON.stringify(body);
+  }
+  return fetch(GITHUB_API_URL + urn, options);
 }
 
 export function post(urn, token, body, cache = 'default') {
