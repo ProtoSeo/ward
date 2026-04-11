@@ -1,4 +1,4 @@
-import {clearLocalStorage, containsKey, getLocalStorage} from './modules/storages.js';
+import {containsKey, getLocalStorage} from './modules/storages.js';
 import {registerRepository as registerRepo} from "./modules/github.js";
 import * as dom from "./modules/dom.js";
 
@@ -97,15 +97,13 @@ document.addEventListener("DOMContentLoaded", () => {
           e.preventDefault();
           chrome.tabs.create({url: message.prUrl});
         });
+      } else if (message.error === 'repo_not_found') {
+        msgEl.textContent = '레포지토리가 삭제되었습니다. 팝업을 다시 열어 등록해주세요.';
+        linkEl.hidden = true;
       } else {
         msgEl.textContent = '저장에 실패했습니다.';
         linkEl.hidden = true;
       }
     }
   });
-});
-
-// clear localstorage function for test
-document.getElementById("clear-temp-btn").addEventListener("click", () => {
-  clearLocalStorage().then(() => location.reload());
 });
