@@ -64,8 +64,13 @@ export async function createPullRequest(title, tabUrl, content) {
   // 초기 README는 URL만 포함 (제목/태그/요약은 워크플로우에서 AI가 생성)
   const readme = `---\nurl: ${tabUrl}\n---\n\n# [${title}](${tabUrl})\n`;
 
-  // 1. default branch 확인
+  // 1. default branch 확인 (레포 존재 여부도 함께 검증)
   const repoResponse = await get(`/repos/${repository}`, token);
+  if (repoResponse.status === 404) {
+    // 레포가 삭제됨 → storage 정리
+    await chrome.storage.local.remove('repository');
+    return {success: false, error: 'repo_not_found'};
+  }
   const repoJson = await repoResponse.json();
   const defaultBranch = repoJson['default_branch'];
 
