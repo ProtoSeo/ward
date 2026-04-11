@@ -1,4 +1,4 @@
-import {containsKey, setLocalStorage} from "./modules/storages.js";
+import {containsKey, getLocalStorage, setLocalStorage} from "./modules/storages.js";
 import {
   CLIENT_ID,
   DEVICE_CODE_URL,
@@ -50,6 +50,8 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   const result = await createPullRequest(tab.title, tab.url, pageContent);
   if (result.success) {
     showNotification('저장 완료!', `PR이 생성되었습니다.`);
+  } else if (result.error === 'repo_not_found') {
+    showNotification('레포지토리가 삭제되었습니다', '팝업에서 다시 등록해주세요.');
   } else {
     showNotification('저장 실패', '다시 시도해주세요.');
   }
@@ -72,7 +74,8 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     chrome.runtime.sendMessage({
       action: 'save_result',
       success: result.success,
-      prUrl: result.prUrl
+      prUrl: result.prUrl,
+      error: result.error
     });
   }
 });
@@ -84,6 +87,8 @@ function sendReload() {
     }
   });
 }
+
+const DEVICE_FLOW_ALARM = 'ward-device-flow-poll';
 
 async function startDeviceFlow() {
   // 1. device code 요청
@@ -101,51 +106,77 @@ async function startDeviceFlow() {
 
   const {device_code, user_code, verification_uri, interval, expires_in} = response;
 
-  // 2. popup에 user_code 전달
+  // 2. device flow 상태를 storage에 저장 (service worker 재시작 대응)
+  await setLocalStorage({
+    'deviceFlow': {
+      deviceCode: device_code,
+      interval: interval || 5,
+      expiresAt: Date.now() + (expires_in * 1000)
+    }
+  });
+
+  // 3. popup에 user_code 전달
   chrome.runtime.sendMessage({
     action: 'device_code',
     userCode: user_code,
     verificationUri: verification_uri
   });
 
-  // 3. 폴링으로 토큰 수령
-  await pollForToken(device_code, interval, expires_in);
+  // 4. alarm으로 폴링 시작 (service worker 재시작에도 유지)
+  const periodInMinutes = Math.max((interval || 5) / 60, 1 / 60); // 최소 1초
+  chrome.alarms.create(DEVICE_FLOW_ALARM, {
+    delayInMinutes: periodInMinutes,
+    periodInMinutes: periodInMinutes
+  });
 }
 
-async function pollForToken(deviceCode, interval, expiresIn) {
-  const pollInterval = (interval || 5) * 1000;
-  const expiresAt = Date.now() + (expiresIn * 1000);
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (alarm.name !== DEVICE_FLOW_ALARM) return;
 
-  while (Date.now() < expiresAt) {
-    await new Promise(resolve => setTimeout(resolve, pollInterval));
-
-    const response = await fetch(DEVICE_TOKEN_URL, {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        client_id: CLIENT_ID,
-        device_code: deviceCode,
-        grant_type: 'urn:ietf:params:oauth:grant-type:device_code'
-      })
-    }).then(res => res.json());
-
-    if (response.access_token) {
-      await setLocalStorage({'githubToken': response.access_token});
-      sendReload();
-      return;
-    }
-
-    if (response.error === 'slow_down') {
-      await new Promise(resolve => setTimeout(resolve, 5000));
-    } else if (response.error === 'expired_token' || response.error === 'access_denied') {
-      chrome.runtime.sendMessage({action: 'login_failed', error: response.error});
-      return;
-    }
-    // authorization_pending → 계속 폴링
+  const deviceFlow = await getLocalStorage('deviceFlow');
+  if (!deviceFlow) {
+    chrome.alarms.clear(DEVICE_FLOW_ALARM);
+    return;
   }
+
+  // 만료 확인
+  if (Date.now() >= deviceFlow.expiresAt) {
+    await stopDeviceFlow();
+    chrome.runtime.sendMessage({action: 'login_failed', error: 'expired_token'});
+    return;
+  }
+
+  // 토큰 폴링
+  const response = await fetch(DEVICE_TOKEN_URL, {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      client_id: CLIENT_ID,
+      device_code: deviceFlow.deviceCode,
+      grant_type: 'urn:ietf:params:oauth:grant-type:device_code'
+    })
+  }).then(res => res.json());
+
+  if (response.access_token) {
+    await setLocalStorage({'githubToken': response.access_token});
+    await stopDeviceFlow();
+    sendReload();
+    return;
+  }
+
+  if (response.error === 'expired_token' || response.error === 'access_denied') {
+    await stopDeviceFlow();
+    chrome.runtime.sendMessage({action: 'login_failed', error: response.error});
+  }
+  // slow_down, authorization_pending → 다음 alarm까지 대기
+});
+
+async function stopDeviceFlow() {
+  await chrome.alarms.clear(DEVICE_FLOW_ALARM);
+  await chrome.storage.local.remove('deviceFlow');
 }
 
 chrome.storage.onChanged.addListener((changes, namespace) => {
