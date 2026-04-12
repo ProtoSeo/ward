@@ -1,4 +1,4 @@
-import {createUniqueTitle} from "./documents.js";
+import {createUniqueTitle, sanitizeTitle} from "./documents.js";
 import {getRepository, getTitles, getToken, setLocalStorage} from "./storages.js";
 import {get, post, put} from "./requests.js";
 import {stringToBase64} from "./utils.js";
@@ -59,10 +59,11 @@ async function createRepositoryByTemplate(name) {
 export async function createPullRequest(title, tabUrl, content) {
   const {repository, token} = await getGithubData();
   const titles = await getTitles();
-  const createdTitle = createUniqueTitle(titles, title);
+  const sanitizedTitle = sanitizeTitle(title);
+  const createdTitle = createUniqueTitle(titles, sanitizedTitle);
 
   // 초기 README는 URL만 포함 (제목/태그/요약은 워크플로우에서 AI가 생성)
-  const readme = `---\nurl: ${tabUrl}\n---\n\n# [${title}](${tabUrl})\n`;
+  const readme = `---\nsource_url: ${tabUrl}\n---\n\n# [${title}](${tabUrl})\n`;
 
   // 1. default branch 확인 (레포 존재 여부도 함께 검증)
   const repoResponse = await get(`/repos/${repository}`, token);
