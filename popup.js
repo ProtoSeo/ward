@@ -1,4 +1,4 @@
-import {containsKey, getLocalStorage} from './modules/storages.js';
+import {containsKey, getLocalStorage, setLocalStorage} from './modules/storages.js';
 import {registerRepository as registerRepo} from "./modules/github.js";
 import * as dom from "./modules/dom.js";
 
@@ -12,32 +12,33 @@ async function updateDisplay() {
 
   const isRegisteredRepository = await containsKey('repository');
   if (isRegisteredRepository) {
-    dom.displayElement('registered-repo-name');
+    dom.displayElement('registered-repo-div');
     document.getElementById('registered-repo-name').innerText = await getLocalStorage('repository');
   } else {
-    dom.displayElement('repo-register-btn');
+    dom.displayElement('repo-register-div');
     dom.hideElement('save-ward-div');
   }
 }
 
 async function registerRepository() {
   dom.disabledButton('repo-register-btn');
-  const result = await registerRepo();
+  const name = document.getElementById("repo-name-input").value.trim();
+  if (!name) return;
+
+  const result = await registerRepo(name);
   if (result.needsCustomName) {
-    dom.displayElement('repo-conflict-div');
-    dom.hideElement('repo-register-btn');
-  } else {
+    document.getElementById('repo-error-message').textContent =
+        `'${name}' 레포지토리가 이미 존재하지만 Ward 템플릿 기반이 아닙니다. 다른 이름을 입력하세요.`;
+    dom.displayElement('repo-error-message');
+    document.getElementById('repo-register-btn').disabled = false;
+  } else if (result.success) {
     location.reload();
   }
 }
 
-async function registerCustomRepository() {
-  dom.disabledButton('repo-custom-register-btn');
-  const name = document.getElementById("repo-name-input").value;
-  if (name) {
-    await registerRepo(name);
-    location.reload();
-  }
+async function disconnectRepository() {
+  await chrome.storage.local.remove('repository');
+  location.reload();
 }
 
 function githubLogin() {
@@ -66,7 +67,7 @@ document.addEventListener("DOMContentLoaded", () => {
   updateDisplay();
 
   document.getElementById("repo-register-btn").addEventListener("click", registerRepository);
-  document.getElementById("repo-custom-register-btn").addEventListener("click", registerCustomRepository);
+  document.getElementById("repo-disconnect-btn").addEventListener("click", disconnectRepository);
   document.getElementById("github-login-btn").addEventListener("click", githubLogin);
   document.getElementById("save-btn").addEventListener("click", saveUrlToRepository);
 

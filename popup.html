@@ -29,14 +29,15 @@
     <p>로그인 됐음</p>
     <!--repository information section-->
     <div id="repo-info-div">
-      <p id="registered-repo-name" hidden></p>
-      <button id="repo-register-btn" hidden>레포지토리 등록</button>
-      <!--이름 충돌 시 표시-->
-      <div id="repo-conflict-div" hidden>
-        <p>이미 'ward' 레포지토리가 존재합니다. 다른 이름을 입력하세요:</p>
+      <div id="registered-repo-div" hidden>
+        <p id="registered-repo-name"></p>
+        <button id="repo-disconnect-btn">레포지토리 해제</button>
+      </div>
+      <div id="repo-register-div" hidden>
         <label for="repo-name-input"></label>
-        <input type="text" id="repo-name-input" placeholder="Enter repository name">
-        <button id="repo-custom-register-btn">등록</button>
+        <input type="text" id="repo-name-input" placeholder="레포지토리 이름" value="ward">
+        <button id="repo-register-btn">레포지토리 등록</button>
+        <p id="repo-error-message" hidden></p>
       </div>
     </div>
     <!--save ward div-->
