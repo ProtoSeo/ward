@@ -45,7 +45,8 @@ async function createRepositoryByTemplate(name) {
   const token = await getToken();
   const response = await post('/repos/protoseo/ward-template/generate', token, {
     name: name,
-    description: 'ward'
+    description: 'ward',
+    private: true
   });
   const json = await response.json();
   if (response.ok) {
