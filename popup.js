@@ -47,6 +47,8 @@ function githubLogin() {
 
 async function saveUrlToRepository() {
   dom.disabledButton('save-btn');
+  dom.displayElement('save-loading-div');
+  dom.hideElement('save-result-div');
 
   const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
 
@@ -87,6 +89,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } else if (message.action === 'login_failed') {
       dom.hideElement('device-code-div');
     } else if (message.action === 'save_result') {
+      dom.hideElement('save-loading-div');
       dom.displayElement('save-result-div');
       const msgEl = document.getElementById('save-result-message');
       const linkEl = document.getElementById('save-result-link');
