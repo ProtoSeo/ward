@@ -52,3 +52,48 @@ export function clearLocalStorage() {
     }
   })
 }
+
+// 하이라이트 저장소 (chrome.storage.session, 브라우저 종료 시 자동 삭제)
+function getAllPendingHighlights() {
+  return new Promise((resolve) => {
+    chrome.storage.session.get('pendingHighlights', (v) => {
+      resolve(v.pendingHighlights || {});
+    });
+  });
+}
+
+export async function getPendingHighlights(tabId) {
+  const all = await getAllPendingHighlights();
+  return all[tabId] || null;
+}
+
+export async function addPendingHighlight(tabId, url, text) {
+  const all = await getAllPendingHighlights();
+  const entry = all[tabId];
+  if (!entry || entry.url !== url) {
+    all[tabId] = {url, highlights: [text]};
+  } else {
+    entry.highlights.push(text);
+    all[tabId] = entry;
+  }
+  await chrome.storage.session.set({pendingHighlights: all});
+}
+
+export async function removePendingHighlight(tabId, index) {
+  const all = await getAllPendingHighlights();
+  const entry = all[tabId];
+  if (!entry) return;
+  entry.highlights.splice(index, 1);
+  if (entry.highlights.length === 0) {
+    delete all[tabId];
+  } else {
+    all[tabId] = entry;
+  }
+  await chrome.storage.session.set({pendingHighlights: all});
+}
+
+export async function clearPendingHighlights(tabId) {
+  const all = await getAllPendingHighlights();
+  delete all[tabId];
+  await chrome.storage.session.set({pendingHighlights: all});
+}

@@ -23,5 +23,13 @@
   },
   "host_permissions": [
     "https://github.com/"
-  ]
+  ],
+  "commands": {
+    "add-highlight": {
+      "suggested_key": {
+        "default": "Alt+Shift+W"
+      },
+      "description": "선택한 텍스트를 Ward 하이라이트로 추가"
+    }
+  }
 }

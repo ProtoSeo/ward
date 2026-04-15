@@ -57,7 +57,7 @@ async function createRepositoryByTemplate(name) {
   return {success: false};
 }
 
-export async function createPullRequest(title, tabUrl, content) {
+export async function createPullRequest(title, tabUrl, content, highlights = []) {
   const {repository, token} = await getGithubData();
   const titles = await getTitles();
   const sanitizedTitle = sanitizeTitle(title);
@@ -95,9 +95,12 @@ export async function createPullRequest(title, tabUrl, content) {
     branch: branchName
   });
 
-  // 5. PR 생성 (페이지 콘텐츠를 body에 포함)
+  // 5. PR 생성 (페이지 콘텐츠 + 수집 구절을 body에 포함)
   const truncatedContent = content ? content.substring(0, 60000) : '';
-  const prBody = `## Warded Page\n\n- **URL**: ${tabUrl}\n\n## Page Content\n\n${truncatedContent}`;
+  const highlightsBlock = highlights.length
+      ? `\n\n## Highlights\n\n${highlights.map(h => `> ${h.replace(/\n+/g, ' ').trim()}`).join('\n\n')}`
+      : '';
+  const prBody = `## Warded Page\n\n- **URL**: ${tabUrl}${highlightsBlock}\n\n## Page Content\n\n${truncatedContent}`;
   const prResponse = await post(`/repos/${repository}/pulls`, token, {
     title: `Ward: ${createdTitle}`,
     body: prBody,

@@ -1,6 +1,13 @@
-import {containsKey, getLocalStorage, setLocalStorage} from './modules/storages.js';
+import {
+  containsKey,
+  getLocalStorage,
+  getPendingHighlights,
+  removePendingHighlight
+} from './modules/storages.js';
 import {registerRepository as registerRepo} from "./modules/github.js";
 import * as dom from "./modules/dom.js";
+
+let currentTabId = null;
 
 async function updateDisplay() {
   const isLoggedIn = await containsKey('githubToken');
@@ -18,6 +25,48 @@ async function updateDisplay() {
     dom.displayElement('repo-register-div');
     dom.hideElement('save-ward-div');
   }
+
+  // 현재 탭의 하이라이트 로드
+  const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+  if (tab) {
+    currentTabId = tab.id;
+    const entry = await getPendingHighlights(tab.id);
+    if (entry && entry.url === tab.url && entry.highlights.length) {
+      renderHighlights(entry.highlights);
+    }
+  }
+}
+
+function renderHighlights(highlights) {
+  const listEl = document.getElementById('highlights-list');
+  const countEl = document.getElementById('highlights-count');
+  listEl.innerHTML = '';
+  highlights.forEach((text, i) => {
+    const li = document.createElement('li');
+    const span = document.createElement('span');
+    span.className = 'highlight-text';
+    span.textContent = text;
+    const btn = document.createElement('button');
+    btn.className = 'highlight-remove-btn';
+    btn.textContent = '×';
+    btn.addEventListener('click', () => removeHighlight(i));
+    li.appendChild(span);
+    li.appendChild(btn);
+    listEl.appendChild(li);
+  });
+  countEl.textContent = highlights.length;
+  if (highlights.length > 0) {
+    dom.displayElement('highlights-div');
+  } else {
+    dom.hideElement('highlights-div');
+  }
+}
+
+async function removeHighlight(index) {
+  if (currentTabId == null) return;
+  await removePendingHighlight(currentTabId, index);
+  const entry = await getPendingHighlights(currentTabId);
+  renderHighlights(entry?.highlights || []);
 }
 
 async function registerRepository() {
@@ -57,11 +106,16 @@ async function saveUrlToRepository() {
     func: () => document.body.innerText
   });
 
+  const entry = await getPendingHighlights(tab.id);
+  const highlights = (entry && entry.url === tab.url) ? entry.highlights : [];
+
   await chrome.runtime.sendMessage({
     action: 'update',
     title: tab.title,
     tabUrl: tab.url,
-    content: pageContent
+    content: pageContent,
+    highlights: highlights,
+    tabId: tab.id
   });
 }
 
